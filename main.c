@@ -3,8 +3,18 @@
 #include <unistd.h>
 #include <glad/glad.h>
 #include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include <X11/Xutil.h>
 #include <GLFW/glfw3.h>
+
+typedef struct hints Hints;
+struct hints {
+    unsigned long flags;
+    unsigned long functions;
+    unsigned long decorations;
+    long          inputMode;
+    unsigned long status;
+};
 
 Window create_x11_window(Display *display, int x, int y, int width, int height);
 
@@ -48,6 +58,29 @@ int main(void)
                                   visual_info.depth, InputOutput,
                                   visual_info.visual, valuemask, &attrs);
 
+    // give hints to window manager
+    XSizeHints wmsize = { .flags = USPosition | USSize };
+    XSetWMNormalHints(display, window, &wmsize);
+    XWMHints wmhints = { .initial_state = NormalState, .flags = StateHint };
+    XSetWMHints(display, window, &wmhints);
+
+
+    // remove title bar and border (works on gnome)
+    Hints hints = {
+        .flags          = 2,
+        .functions      = 0,
+        .decorations    = 0,
+        .inputMode      = 0,
+        .status         = 0
+    };
+    Atom property = XInternAtom(display, "_MOTIF_WM_HINTS", True);
+    if(!property)
+    {
+        fprintf(stderr, "Error: XInternAtom\n");
+        exit(EXIT_FAILURE);
+    }
+    XChangeProperty(display, window, property, property, 32, PropModeReplace, (unsigned char *) &hints, 5);
+
     XMapWindow(display, window);
     printf("mapped window\n");
 
@@ -60,6 +93,7 @@ int main(void)
         switch(event.type)
         {
             case ButtonPress:
+            case KeyPress:
                 quit = 1;
                 break;
         }
